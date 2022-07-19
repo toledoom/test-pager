@@ -1,7 +1,8 @@
 package domain_test
 
 import (
-	"github.com/toledoom/test-pager/v2/domain/model"
+	"github.com/toledoom/test-pager/v2/domain/escalationpolicy"
+	"github.com/toledoom/test-pager/v2/domain/monitoredservice"
 )
 
 type spyTimer struct {
@@ -9,7 +10,7 @@ type spyTimer struct {
 	timeoutInSeconds int
 }
 
-func (spyT *spyTimer) SetTimeout(timeoutInSeconds int) {
+func (spyT *spyTimer) SetTimeout(serviceID string, timeoutInSeconds int) {
 	spyT.timeoutInSeconds = timeoutInSeconds
 	spyT.setTimeOutCalls++
 }
@@ -30,7 +31,7 @@ type spySmsNotifier struct {
 	calls int
 }
 
-func (ssn *spySmsNotifier) Notify(targets ...model.Target) {
+func (ssn *spySmsNotifier) Notify(targets ...escalationpolicy.Target) {
 	ssn.calls++
 }
 
@@ -42,7 +43,7 @@ type spyMailNotifier struct {
 	calls int
 }
 
-func (smn *spyMailNotifier) Notify(targets ...model.Target) {
+func (smn *spyMailNotifier) Notify(targets ...escalationpolicy.Target) {
 	smn.calls++
 }
 
@@ -54,37 +55,37 @@ type dummyEscalationPolicyRepository struct {
 	serviceID string
 }
 
-func (depr *dummyEscalationPolicyRepository) GetByServiceID(serviceID string) model.EscalationPolicy {
-	levels := []model.Level{
-		model.NewLevel(
-			[]model.Target{
-				model.NewEmailTarget("target1@test.com"),
-				model.NewSmsTarget("+341111111"),
+func (depr *dummyEscalationPolicyRepository) GetByServiceID(serviceID string) escalationpolicy.EscalationPolicy {
+	levels := []escalationpolicy.Level{
+		escalationpolicy.NewLevel(
+			[]escalationpolicy.Target{
+				escalationpolicy.NewEmailTarget("target1@test.com"),
+				escalationpolicy.NewSmsTarget("+341111111"),
 			},
 		),
-		model.NewLevel(
-			[]model.Target{
-				model.NewSmsTarget("+342222222"),
-				model.NewSmsTarget("+343333333"),
+		escalationpolicy.NewLevel(
+			[]escalationpolicy.Target{
+				escalationpolicy.NewSmsTarget("+342222222"),
+				escalationpolicy.NewSmsTarget("+343333333"),
 			},
 		),
-		model.NewLevel(
-			[]model.Target{
-				model.NewEmailTarget("angry-cto@test.com"),
-				model.NewSmsTarget("+349999999"),
+		escalationpolicy.NewLevel(
+			[]escalationpolicy.Target{
+				escalationpolicy.NewEmailTarget("angry-cto@test.com"),
+				escalationpolicy.NewSmsTarget("+349999999"),
 			},
 		),
 	}
-	return model.NewEscalationPolicy(depr.serviceID, levels)
+	return escalationpolicy.New(depr.serviceID, levels)
 }
 
 type dummyMonitoredServiceRepository struct {
-	ms *model.MonitoredService
+	ms *monitoredservice.MonitoredService
 }
 
-func (dmsr *dummyMonitoredServiceRepository) FindByServiceID(serviceID string) *model.MonitoredService {
+func (dmsr *dummyMonitoredServiceRepository) FindByServiceID(serviceID string) *monitoredservice.MonitoredService {
 	if dmsr.ms == nil {
-		dmsr.ms = model.NewMonitoredService(serviceID)
+		dmsr.ms = monitoredservice.New(serviceID)
 	}
 
 	return dmsr.ms

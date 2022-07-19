@@ -1,4 +1,4 @@
-package model
+package monitoredservice
 
 type HealthyEvent struct {
 	serviceID string

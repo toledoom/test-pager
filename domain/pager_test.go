@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/toledoom/test-pager/v2/domain"
-	"github.com/toledoom/test-pager/v2/domain/model"
-	"github.com/toledoom/test-pager/v2/domain/service"
+	"github.com/toledoom/test-pager/v2/domain/monitoredservice"
+	"github.com/toledoom/test-pager/v2/domain/notifier"
 )
 
 const myServiceID = "my-service-id"
@@ -19,19 +19,19 @@ func TestUseCase1(t *testing.T) {
 	epr := &dummyEscalationPolicyRepository{}
 	smsNotifier := &spySmsNotifier{}
 	mailNotifier := &spyMailNotifier{}
-	notifier := service.NewCompositeNotifier(smsNotifier, mailNotifier)
+	notifier := notifier.NewComposite(smsNotifier, mailNotifier)
 	timer := &spyTimer{}
 	timerConfiguration := &dummyTimerConfiguration{timeoutInSeconds: 15 * 60}
 	pager := domain.NewPager(msr, epr, notifier, timer, timerConfiguration)
 
 	// Act
 	now := 10
-	alert := model.NewAlert(myServiceID, "a message", uint64(now))
+	alert := monitoredservice.NewAlert(myServiceID, "a message", uint64(now))
 	pager.SendAlert(alert)
 
 	// Assert monitored service is healthy
 	status := pager.Status(myServiceID)
-	assert.Equal(model.Unhealthy, status.Health())
+	assert.Equal(monitoredservice.Unhealthy, status.Health())
 	// Assert timeout set to timer service
 	assert.Equal(1, timer.CalledTimes())
 	assert.Equal(15*60, timer.timeoutInSeconds)
@@ -83,7 +83,7 @@ func TestUseCase4(t *testing.T) {
 
 	// Act
 	now := 10
-	newAlert := model.NewAlert(myServiceID, "a message", uint64(now))
+	newAlert := monitoredservice.NewAlert(myServiceID, "a message", uint64(now))
 	pager.SendAlert(newAlert)
 
 	// Assert no timeout is sent to timer service
@@ -100,12 +100,12 @@ func TestUseCase5(t *testing.T) {
 	smsNotifier, mailNotifier, timer, pager := arrangeUnhealthyDependencies()
 
 	// Act
-	healthyEvent := model.NewHealthyEvent(myServiceID)
+	healthyEvent := monitoredservice.NewHealthyEvent(myServiceID)
 	pager.SendHealthyEvent(healthyEvent)
 
 	// Assert monitored service is healthy
 	status := pager.Status(myServiceID)
-	assert.Equal(model.Ok, status.Health())
+	assert.Equal(monitoredservice.Ok, status.Health())
 	// Assert no timeout is sent to timer service
 	assert.Equal(0, timer.CalledTimes())
 	// Assert no targets are notified
@@ -114,14 +114,14 @@ func TestUseCase5(t *testing.T) {
 }
 
 func arrangeUnhealthyDependencies() (*spySmsNotifier, *spyMailNotifier, *spyTimer, *domain.Pager) {
-	ms := model.NewMonitoredService(myServiceID)
-	alert := model.NewAlert(myServiceID, "a message", 10)
+	ms := monitoredservice.New(myServiceID)
+	alert := monitoredservice.NewAlert(myServiceID, "a message", 10)
 	ms.TurnToUnhealthy(alert)
 	msr := &dummyMonitoredServiceRepository{ms: ms}
 	epr := &dummyEscalationPolicyRepository{}
 	smsNotifier := &spySmsNotifier{}
 	mailNotifier := &spyMailNotifier{}
-	notifier := service.NewCompositeNotifier(smsNotifier, mailNotifier)
+	notifier := notifier.NewComposite(smsNotifier, mailNotifier)
 	timer := &spyTimer{}
 	timerConfiguration := &dummyTimerConfiguration{timeoutInSeconds: 15 * 60}
 	pager := domain.NewPager(msr, epr, notifier, timer, timerConfiguration)

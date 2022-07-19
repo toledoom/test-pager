@@ -1,11 +1,11 @@
-package model
+package escalationpolicy
 
 type EscalationPolicy struct {
 	serviceID string
 	levels    []Level
 }
 
-func NewEscalationPolicy(serviceID string, levels []Level) EscalationPolicy {
+func New(serviceID string, levels []Level) EscalationPolicy {
 	return EscalationPolicy{
 		serviceID: serviceID,
 		levels:    levels,
@@ -66,6 +66,6 @@ func (et *SmsTarget) GetMetadata() map[string]string {
 	}
 }
 
-type EscalationPolicyRepository interface {
+type Repository interface {
 	GetByServiceID(serviceID string) EscalationPolicy
 }

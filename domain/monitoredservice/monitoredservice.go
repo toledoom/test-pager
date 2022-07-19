@@ -1,4 +1,4 @@
-package model
+package monitoredservice
 
 const (
 	Ok = iota
@@ -19,21 +19,21 @@ type MonitoredService struct {
 	alert     *Alert
 }
 
-type MonitoredServiceStatus struct {
+type Status struct {
 	serviceID             string
 	health                int
 	escalationPolicyLevel int
 }
 
-func (mss MonitoredServiceStatus) Health() int {
+func (mss Status) Health() int {
 	return mss.health
 }
 
-func (mss MonitoredServiceStatus) EscalationPolicyLevel() int {
+func (mss Status) EscalationPolicyLevel() int {
 	return mss.escalationPolicyLevel
 }
 
-func NewMonitoredService(serviceID string) *MonitoredService {
+func New(serviceID string) *MonitoredService {
 	return &MonitoredService{
 		serviceID: serviceID,
 	}
@@ -85,9 +85,9 @@ func (ms *MonitoredService) AcknowledgeAlert(timestamp uint64) {
 	ms.alert.acknowledgedAt = timestamp
 }
 
-func (ms *MonitoredService) Status() MonitoredServiceStatus {
+func (ms *MonitoredService) Status() Status {
 
-	status := MonitoredServiceStatus{serviceID: ms.serviceID}
+	status := Status{serviceID: ms.serviceID}
 
 	if ms.alert != nil {
 		status.escalationPolicyLevel = ms.alert.escalationPolicyLevel
@@ -107,6 +107,6 @@ func (ms *MonitoredService) Status() MonitoredServiceStatus {
 	return status
 }
 
-type MonitoredServiceRepository interface {
+type Repository interface {
 	FindByServiceID(serviceID string) *MonitoredService
 }
