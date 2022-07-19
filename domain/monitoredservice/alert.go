@@ -1,4 +1,4 @@
-package model
+package monitoredservice
 
 type Alert struct {
 	serviceID             string
