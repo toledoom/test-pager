@@ -31,41 +31,41 @@ func NewPager(
 }
 
 func (p *Pager) SendAlert(alert *monitoredservice.Alert) {
-	monitoredService := p.monitoredServiceRepository.FindByServiceID(alert.ServiceID())
+	monitoredService := p.monitoredServiceRepository.FindByServiceID(alert.ID())
 
-	if !monitoredService.Healthy() || monitoredService.Acknowledged() {
+	if monitoredService.HasAlertWithType(alert.Type()) || monitoredService.Acknowledged(alert.Type()) {
 		return
 	}
 
 	monitoredService.TurnToUnhealthy(alert)
 
 	timeoutInSeconds := p.timerConfiguration.GetTimeoutInSeconds()
-	p.timer.SetTimeout(alert.ServiceID(), timeoutInSeconds)
+	p.timer.SetTimeout(alert.ID(), timeoutInSeconds)
 
-	ep := p.escalationPolicyRepository.GetByServiceID(alert.ServiceID())
+	ep := p.escalationPolicyRepository.GetByServiceID(alert.ID())
 	targets := ep.GetTargetsByLevel(0)
 	p.notifier.Notify(targets...)
 }
 
-func (p *Pager) AcknowledgeAlert(serviceID string, timestamp uint64) {
+func (p *Pager) AcknowledgeAlert(serviceID, alertType string, timestamp uint64) {
 	monitoredService := p.monitoredServiceRepository.FindByServiceID(serviceID)
-	monitoredService.AcknowledgeAlert(timestamp)
+	monitoredService.AcknowledgeAlert(alertType, timestamp)
 }
 
 func (p *Pager) SendHealthyEvent(healthyEvent *monitoredservice.HealthyEvent) {
 	monitoredService := p.monitoredServiceRepository.FindByServiceID(healthyEvent.ServiceID())
-	monitoredService.TurnToHealthy()
+	monitoredService.TurnToHealthy(healthyEvent.AlertType())
 }
 
-func (p *Pager) NotifyAckTimeout(serviceID string) {
+func (p *Pager) NotifyAckTimeout(serviceID, alertType string) {
 	monitoredService := p.monitoredServiceRepository.FindByServiceID(serviceID)
-	if monitoredService.Acknowledged() {
+	if monitoredService.Acknowledged(alertType) {
 		return
 	}
 
 	escalationPolicy := p.escalationPolicyRepository.GetByServiceID(serviceID)
 
-	nextEscalationPolicyLevel, err := monitoredService.EscalatePolicy(escalationPolicy.MaxLevel())
+	nextEscalationPolicyLevel, err := monitoredService.EscalatePolicy(alertType, escalationPolicy.MaxLevel())
 
 	_, maxEscalatePolicyReached := err.(*monitoredservice.MaxEscalatePolicyReached)
 	if maxEscalatePolicyReached {

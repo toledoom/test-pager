@@ -1,5 +1,7 @@
 package monitoredservice
 
+import "fmt"
+
 const (
 	Ok = iota
 	Unhealthy
@@ -16,7 +18,7 @@ type CannotEscalateHealthyService struct {
 
 type MonitoredService struct {
 	serviceID string
-	alert     *Alert
+	alerts    map[string]*Alert
 }
 
 type Status struct {
@@ -36,15 +38,25 @@ func (mss Status) EscalationPolicyLevel() int {
 func New(serviceID string) *MonitoredService {
 	return &MonitoredService{
 		serviceID: serviceID,
+		alerts:    make(map[string]*Alert),
 	}
 }
 
 func (ms *MonitoredService) Healthy() bool {
-	return ms.alert == nil || ms.alert.healthyAt > 0
+	return len(ms.alerts) == 0
 }
 
-func (ms *MonitoredService) Acknowledged() bool {
-	return ms.alert != nil && ms.alert.acknowledgedAt > 0
+func (ms *MonitoredService) HasAlertWithType(alertType string) bool {
+	_, ok := ms.alerts[alertType]
+	return ok
+}
+
+func (ms *MonitoredService) Acknowledged(alertType string) bool {
+	alert, ok := ms.alerts[alertType]
+	if !ok {
+		return false
+	}
+	return alert.acknowledgedAt > 0
 }
 
 func (ms *MonitoredService) TurnToUnhealthy(alert *Alert) error {
@@ -52,48 +64,72 @@ func (ms *MonitoredService) TurnToUnhealthy(alert *Alert) error {
 		return nil
 	}
 
-	ms.alert = alert
+	ms.alerts[alert._type] = alert
 	return nil
 }
 
-func (ms *MonitoredService) TurnToHealthy() {
-	ms.alert = nil
+func (ms *MonitoredService) TurnToHealthy(alertType string) {
+	_, ok := ms.alerts[alertType]
+	if !ok {
+		return
+	}
+	delete(ms.alerts, alertType)
 }
 
-func (ms *MonitoredService) EscalatePolicy(maxEscalationPolicyLevel int) (int, error) {
+func (ms *MonitoredService) EscalatePolicy(alertType string, maxEscalationPolicyLevel int) (int, error) {
 	if ms.Healthy() {
 		return -1, CannotEscalateHealthyService{}
 	}
 
-	if ms.alert.escalationPolicyLevel >= maxEscalationPolicyLevel-1 {
+	alert, ok := ms.alerts[alertType]
+	if !ok {
+		return 0, fmt.Errorf("no alertType for service %s and type %s", ms.serviceID, alertType)
+	}
+
+	if alert.escalationPolicyLevel >= maxEscalationPolicyLevel-1 {
 		return -1, MaxEscalatePolicyReached{}
 	}
 
-	ms.alert.escalationPolicyLevel++
+	alert.escalationPolicyLevel++
+	ms.alerts[alertType] = alert
 
-	return ms.alert.escalationPolicyLevel, nil
+	return alert.escalationPolicyLevel, nil
 }
 
-func (ms *MonitoredService) AcknowledgeAlert(timestamp uint64) {
+func (ms *MonitoredService) AcknowledgeAlert(alertType string, timestamp uint64) {
 	if ms.Healthy() {
 		return
 	}
 
-	if ms.alert.acknowledgedAt != 0 {
+	alert, ok := ms.alerts[alertType]
+	if !ok {
 		return
 	}
-	ms.alert.acknowledgedAt = timestamp
+
+	if alert.acknowledgedAt != 0 {
+		return
+	}
+	alert.acknowledgedAt = timestamp
 }
 
 func (ms *MonitoredService) Status() Status {
 
 	status := Status{serviceID: ms.serviceID}
 
-	if ms.alert != nil {
-		status.escalationPolicyLevel = ms.alert.escalationPolicyLevel
+	var alert *Alert
+	if ms.alerts != nil && len(ms.alerts) > 0 {
+		for _, v := range ms.alerts {
+			alert = v
+		}
 	}
 
-	if ms.Acknowledged() {
+	if alert == nil {
+		return Status{}
+	}
+
+	status.escalationPolicyLevel = alert.escalationPolicyLevel
+
+	if ms.Acknowledged(alert._type) {
 		status.health = Acknowledged
 		return status
 	}
